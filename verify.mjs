@@ -46,7 +46,8 @@ const GAMES = {
 async function run(bt, name, slug, vp) {
   const g = GAMES[slug]; const [w, h] = vp.split('x').map(Number)
   const b = await bt.launch()
-  const ctx = await b.newContext({ viewport: { width: w, height: h }, hasTouch: true, isMobile: name === 'chromium', deviceScaleFactor: 2, locale: 'ja-JP' })
+  const ctx = await b.newContext({ viewport: { width: w, height: h }, hasTouch: true, isMobile: name === 'chromium' && w < 800, deviceScaleFactor: 2, locale: 'ja-JP' })
+  await ctx.route('https://apps.apple.com/**', r => r.fulfill({ status: 200, contentType: 'text/html', body: '<title>store</title>' }))
   const p = await ctx.newPage()
   const errs = [], bad = []
   p.on('pageerror', e => errs.push('pageerror ' + e.message))
@@ -64,16 +65,29 @@ async function run(bt, name, slug, vp) {
   const ovOver = await overflow(p)
   const sup = await vis(p, '#tmSupport'), home = await vis(p, '#tmHome')
   const supTxt = await p.evaluate(() => (document.getElementById('tmSupport') || {}).textContent + ' / ' + (document.getElementById('tmHome') || {}).textContent)
+  // iPhone アプリ版ボタン: 見える・リンク先・新しいタブ・主ボタンと離れている・押すと計測とストアのタブ
+  const MAIN = { 'ufo-smash': '#retryBtn', 'draw-bounce': '#startBtn', 'traffic-ojisan': '#goHome' }[slug]
+  const appVis = await vis(p, '#tmApp')
+  const app = await p.evaluate(m => { const a = document.getElementById('tmApp'), b = document.querySelector(m); if (!a) return null; const r = a.getBoundingClientRect(), q = b.getBoundingClientRect(); const gx = Math.max(0, q.left - r.right, r.left - q.right), gy = Math.max(0, q.top - r.bottom, r.top - q.bottom); return { href: a.getAttribute('href'), target: a.target, rel: a.rel, txt: a.textContent, h: Math.round(r.height), w: Math.round(r.width), mainH: Math.round(q.height), gap: Math.round(Math.max(gx, gy)) } }, MAIN)
+  let appPop = ''
+  if (appVis) { const pop = ctx.waitForEvent('page', { timeout: 5000 }).catch(() => null); await tap(p, '#tmApp'); const np = await pop; if (np) { appPop = np.url(); await np.close() } }
   const tm = await p.evaluate(() => (window.__tmLog || []).map(x => x.name).join(','))
   const again = await g.after(p)
   await p.waitForTimeout(300)
-  out.push({ tag, ready, ...r, sup, home, supTxt, tm, again, errs, bad, ovHome, ovOver })
+  out.push({ tag, ready, ...r, sup, home, supTxt, appVis, app, appPop, tm, again, errs, bad, ovHome, ovOver })
   console.log(JSON.stringify(out.at(-1)))
   await b.close()
 }
 const tasks = []
 for (const slug of GAME === 'all' ? Object.keys(GAMES) : GAME.split(',')) for (const name of BR.split(',')) for (const vp of VPS.split(',')) tasks.push([name === 'webkit' ? webkit : chromium, name, slug, vp])
-// 3本ずつ並列
-for (let i = 0; i < tasks.length; i += 3) await Promise.all(tasks.slice(i, i + 3).map(t => run(...t).catch(e => { console.log('ERR', t[1], t[2], t[3], e.message); out.push({ tag: t.slice(1).join('_'), fatal: e.message }) })))
+// Android の UA ではアプリ版ボタンを出さない（入れられないため）
+for (const slug of GAME === 'all' ? Object.keys(GAMES) : GAME.split(',')) {
+  const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 412, height: 915 }, hasTouch: true, isMobile: true, userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36', locale: 'ja-JP' })
+  const p = await ctx.newPage(); await p.goto(base(slug), { waitUntil: 'load' }); await p.waitForFunction(f => !!window[f], GAMES[slug].ready, { timeout: 15000 }).catch(() => {}); await p.waitForTimeout(800)
+  const r = await p.evaluate(() => ({ app: !!document.getElementById('tmApp'), support: !!document.getElementById('tmSupport') }))
+  console.log(JSON.stringify({ android: slug, ...r, ok: !r.app && r.support })); await b.close()
+}
+// 2本ずつ並列（重い検査は同時に2本まで）
+for (let i = 0; i < tasks.length; i += 2) await Promise.all(tasks.slice(i, i + 2).map(t => run(...t).catch(e => { console.log('ERR', t[1], t[2], t[3], e.message); out.push({ tag: t.slice(1).join('_'), fatal: e.message }) })))
 console.log('SERVER 404:', JSON.stringify(srv.miss))
 srv.close()
