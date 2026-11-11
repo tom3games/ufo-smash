@@ -389,6 +389,9 @@ button:focus-visible {
   background: #14103a;
   box-shadow: 0 0 0 3px #000, inset 0 0 0 2px #2f6f9a;
 }
+#tmApp span { white-space: nowrap; }
+/* 盤面が細い時（X の中など）は字を詰めて1行に収める */
+html.inapp-x #tmApp { font-size: 0.74rem; padding: 0 10px; gap: 5px; }
 #tmApp:active { transform: translateY(2px); }
 #tmApp:focus-visible { outline: 3px solid #7ef0ff; outline-offset: 2px; }
 
