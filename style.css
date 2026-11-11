@@ -391,3 +391,15 @@ button:focus-visible {
 }
 #tmApp:active { transform: translateY(2px); }
 #tmApp:focus-visible { outline: 3px solid #7ef0ff; outline-offset: 2px; }
+
+/* X のアプリの中: 下の帯（--inapp-bot）の分だけ盤面を縮めて上に寄せる */
+html.inapp-x #app { align-items: flex-start; }
+html.inapp-x #stage { height: calc(100dvh - var(--inapp-bot, 0px)); max-height: calc(100dvh - var(--inapp-bot, 0px)); }
+@media (max-height: 680px) {
+  html.inapp-x #gameover .panel { padding: 12px 12px; }
+  html.inapp-x #gameover .panel h2 { margin-bottom: 6px; }
+  html.inapp-x #gameover .ranks-title { margin: 8px 0 4px; }
+  html.inapp-x #gameover .ranks li { padding: 2px 4px; }
+  html.inapp-x #gameover .menu-actions { flex-direction: row; justify-content: center; gap: 12px; }
+  html.inapp-x #gameover #tmApp { margin-top: 10px; }
+}

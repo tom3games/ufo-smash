@@ -1211,6 +1211,7 @@
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && menuOpen) closeMenu(); });
 
   window.addEventListener("resize", resize);
+  window.addEventListener("load", resize); // X の印は support.js（後から読む）が付ける
   window.addEventListener("orientationchange", resize);
   document.addEventListener("fullscreenchange", resize);
   document.addEventListener("webkitfullscreenchange", resize);
